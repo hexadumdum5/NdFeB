@@ -15,23 +15,19 @@ def get_nd_price():
         response = requests.get(url, headers=HEADERS, timeout=5)
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # 캡처해주신 '실제', '이전' 등이 포함된 테이블을 먼저 찾습니다.
         tables = soup.find_all('table')
         for table in tables:
             if '실제' in table.text and '이전' in table.text:
-                # 데이터가 들어있는 행(tr)들을 찾습니다.
                 rows = table.find_all('tr')
                 for row in rows:
                     tds = row.find_all('td')
-                    # 헤더가 아닌 실제 데이터가 있는 첫 번째 행의 첫 번째 칸('실제' 값)을 추출합니다.
                     if len(tds) >= 1:
                         price_str = tds[0].text.strip()
-                        # 숫자와 소수점만 남기고 특수기호 제거
                         price_clean = re.sub(r'[^0-9.]', '', price_str)
                         if price_clean:
                             return float(price_clean)
                             
-        return 1060000.0 # 크롤링 실패 시 캡처해주신 기준가 적용
+        return 1060000.0 
     except Exception:
         return 1060000.0 
 
@@ -88,10 +84,12 @@ exchange_rate = st.sidebar.number_input("환율 (KRW/CNY)", value=float(raw_exch
 
 st.sidebar.markdown("---")
 st.sidebar.header("2. 자석 정보 입력")
-total_weight = st.sidebar.number_input("총 투입 중량 (kg)", value=1.0)
-nd_content = st.sidebar.number_input("Nd 함량 (%)", value=20.0)
-dy_content = st.sidebar.number_input("Dy 함량 (%)", value=0.0)
-recovery_rate = st.sidebar.slider("예상 회수 수율 (%)", 0, 100, 80)
+total_weight = st.sidebar.number_input("총 투입 중량 (kg)", value=1000.0)
+nd_content = st.sidebar.number_input("Nd 함량 (%)", value=25.0)
+dy_content = st.sidebar.number_input("Dy 함량 (%)", value=3.0)
+
+# 슬라이더에서 직접 입력(number_input) 방식으로 변경
+recovery_rate = st.sidebar.number_input("예상 회수 수율 (%)", min_value=0.0, max_value=100.0, value=90.0, step=0.1)
 
 # 3. 가치 계산
 # 톤당 위안화 가격을 원화 기준 kg당 가격으로 환산
