@@ -85,8 +85,8 @@ exchange_rate = st.sidebar.number_input("환율 (KRW/CNY)", value=float(raw_exch
 st.sidebar.markdown("---")
 st.sidebar.header("2. 자석 정보 입력")
 total_weight = st.sidebar.number_input("총 투입 중량 (kg)", value=1000.0)
-nd_content = st.sidebar.number_input("Nd 함량 (%)", value=25.0)
-dy_content = st.sidebar.number_input("Dy 함량 (%)", value=3.0)
+nd_content = st.sidebar.number_input("Nd 함량 (%)", value=20.0)
+dy_content = st.sidebar.number_input("Dy 함량 (%)", value=0.0)
 
 # 슬라이더에서 직접 입력(number_input) 방식으로 변경
 recovery_rate = st.sidebar.number_input("예상 회수 수율 (%)", min_value=0.0, max_value=100.0, value=80.0, step=0.1)
