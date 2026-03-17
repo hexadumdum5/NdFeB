@@ -89,7 +89,7 @@ nd_content = st.sidebar.number_input("Nd 함량 (%)", value=25.0)
 dy_content = st.sidebar.number_input("Dy 함량 (%)", value=3.0)
 
 # 슬라이더에서 직접 입력(number_input) 방식으로 변경
-recovery_rate = st.sidebar.number_input("예상 회수 수율 (%)", min_value=0.0, max_value=100.0, value=90.0, step=0.1)
+recovery_rate = st.sidebar.number_input("예상 회수 수율 (%)", min_value=0.0, max_value=100.0, value=80.0, step=0.1)
 
 # 3. 가치 계산
 # 톤당 위안화 가격을 원화 기준 kg당 가격으로 환산
