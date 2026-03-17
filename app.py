@@ -91,7 +91,7 @@ st.sidebar.header("2. 자석 정보 입력")
 total_weight = st.sidebar.number_input("총 투입 중량 (kg)", value=1.0)
 nd_content = st.sidebar.number_input("Nd 함량 (%)", value=25.0)
 dy_content = st.sidebar.number_input("Dy 함량 (%)", value=0.0)
-recovery_rate = st.sidebar.slider("예상 회수 수율 (%)", 0, 100, 80)
+recovery_rate = st.sidebar.numver_input("예상 회수 수율 (%)", value=80)
 
 # 3. 가치 계산
 # 톤당 위안화 가격을 원화 기준 kg당 가격으로 환산
