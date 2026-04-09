@@ -9,7 +9,6 @@ HEADERS = {
     "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7"
 }
 
-# 데이터를 10분(600초)만 기억하도록 시간을 짧게 줄였습니다.
 @st.cache_data(ttl=600)
 def fetch_market_data():
     data = {"nd": None, "dy": None, "exchange": None, "errors": []}
@@ -24,9 +23,9 @@ def fetch_market_data():
         if match_nd:
             data["nd"] = float(match_nd.group(1).replace(',', ''))
         else:
-            data["errors"].append("Nd 시세 (사이트 구조 변경 또는 차단됨)")
+            data["errors"].append("Nd 시세 (구조 변경)")
     except Exception:
-        data["errors"].append("Nd 시세 (접속 지연 또는 차단)")
+        data["errors"].append("Nd 시세 (차단됨)")
 
     # 2. Dy 시세 (SunSirs)
     try:
@@ -40,19 +39,35 @@ def fetch_market_data():
                 price_str = tds[1].text.strip()
                 data["dy"] = float(re.sub(r'[^0-9.]', '', price_str))
         if data["dy"] is None:
-            data["errors"].append("Dy 시세 (데이터 찾을 수 없음)")
+            data["errors"].append("Dy 시세 (데이터 없음)")
     except Exception:
-         data["errors"].append("Dy 시세 (접속 지연 또는 차단)")
+         data["errors"].append("Dy 시세 (차단됨)")
 
-    # 3. 환율 (네이버 모바일 직접 API 사용 - 가장 빠르고 정확함)
+    # 3. 환율 (구글 파이낸스 -> 네이버 금융 2중 백업)
     try:
-        url_ex = "https://m.stock.naver.com/front-api/v1/marketIndex/prices?category=exchange&reutersCode=FX_CNYKRW"
-        res_ex = requests.get(url_ex, headers=HEADERS, timeout=5)
-        json_ex = res_ex.json() # HTML이 아닌 순수 데이터(JSON)를 받아옵니다.
-        price_str = json_ex['result'][0]['closePrice']
-        data["exchange"] = float(price_str.replace(',', ''))
+        # 1차 시도: 구글 파이낸스 (클라우드 환경에서 차단이 적음)
+        url_google = "https://www.google.com/finance/quote/CNY-KRW"
+        res_google = requests.get(url_google, headers=HEADERS, timeout=5)
+        soup_google = BeautifulSoup(res_google.text, 'html.parser')
+        price_div = soup_google.find(class_='YMlKec fxKbKc')
+        if price_div:
+            data["exchange"] = float(price_div.text.strip().replace(',', ''))
+        else:
+            raise Exception("Google failed")
     except Exception:
-        data["errors"].append("환율 (API 연동 실패)")
+        try:
+            # 2차 시도: 네이버 금융 환율 상세 페이지 우회 크롤링
+            url_naver = "https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_CNYKRW"
+            res_naver = requests.get(url_naver, headers=HEADERS, timeout=5)
+            soup_naver = BeautifulSoup(res_naver.text, 'html.parser')
+            today_price = soup_naver.find('p', class_='no_today')
+            if today_price:
+                price_str = today_price.find('span', class_='blind').text
+                data["exchange"] = float(price_str.replace(',', ''))
+            else:
+                 data["errors"].append("환율 (데이터 연동 실패)")
+        except Exception:
+            data["errors"].append("환율 (모든 접속 차단됨)")
 
     return data
 
@@ -60,9 +75,8 @@ def fetch_market_data():
 st.set_page_config(page_title="희토류 가치 계산기", layout="centered")
 
 st.title("NdFeB 폐자석 가치 계산기")
-st.markdown("Nd, Dy 시세 및 네이버 환율 자동 연동")
+st.markdown("Nd, Dy 시세 및 환율 자동 연동")
 
-# 새로고침 버튼 (캐시 삭제 후 다시 불러오기)
 if st.button("🔄 실시간 데이터 갱신 (새로고침)"):
     st.cache_data.clear()
     st.rerun()
@@ -70,14 +84,13 @@ if st.button("🔄 실시간 데이터 갱신 (새로고침)"):
 # 백그라운드 데이터 불러오기
 market_data = fetch_market_data()
 
-# 에러가 발생한 경우 사용자에게 투명하게 알림
 if market_data["errors"]:
     error_msgs = ", ".join(market_data["errors"])
-    st.warning(f"⚠️ 일부 데이터를 자동으로 불러오지 못했습니다. 아래 숫자를 직접 수정해 주세요. (실패 항목: {error_msgs})")
+    st.warning(f"⚠️ 일부 데이터를 자동으로 불러오지 못했습니다. 아래 숫자를 직접 수정해 주세요. (실패: {error_msgs})")
 else:
     st.success("✅ 모든 실시간 시세 및 환율을 성공적으로 불러왔습니다.")
 
-# 크롤링 실패 시 적용할 기본값 설정
+# 크롤링 실패 시 적용할 기본값 설정 (가장 최근 대략적인 시세)
 default_nd = market_data["nd"] if market_data["nd"] else 975000.0
 default_dy = market_data["dy"] if market_data["dy"] else 2075000.0
 default_ex = market_data["exchange"] if market_data["exchange"] else 190.0
