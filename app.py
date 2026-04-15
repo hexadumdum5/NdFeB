@@ -82,25 +82,27 @@ def fetch_market_data():
     except Exception:
          data["errors"].append("Dy 시세 (통신 실패)")
 
-    # 3. 환율
+    # 3. 환율 (네이버 금융 1순위 -> 구글 파이낸스 2순위 백업으로 순서 변경)
     try:
-        url_google = "https://www.google.com/finance/quote/CNY-KRW"
-        res_google = requests.get(url_google, headers=HEADERS, timeout=10)
-        soup_google = BeautifulSoup(res_google.text, 'html.parser')
-        price_div = soup_google.find(class_='YMlKec fxKbKc')
-        if price_div:
-            data["exchange"] = float(price_div.text.strip().replace(',', ''))
+        # 1차 시도: 네이버 금융 (한국 실무 기준 - 하나은행 매매기준율)
+        url_naver = "https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_CNYKRW"
+        res_naver = requests.get(url_naver, headers=HEADERS, timeout=10)
+        soup_naver = BeautifulSoup(res_naver.text, 'html.parser')
+        today_price = soup_naver.find('p', class_='no_today')
+        if today_price:
+            price_str = today_price.find('span', class_='blind').text
+            data["exchange"] = float(price_str.replace(',', ''))
         else:
-            raise Exception("Google failed")
+            raise Exception("Naver failed")
     except Exception:
         try:
-            url_naver = "https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_CNYKRW"
-            res_naver = requests.get(url_naver, headers=HEADERS, timeout=10)
-            soup_naver = BeautifulSoup(res_naver.text, 'html.parser')
-            today_price = soup_naver.find('p', class_='no_today')
-            if today_price:
-                price_str = today_price.find('span', class_='blind').text
-                data["exchange"] = float(price_str.replace(',', ''))
+            # 2차 시도: 구글 파이낸스 (국제 외환 기준)
+            url_google = "https://www.google.com/finance/quote/CNY-KRW"
+            res_google = requests.get(url_google, headers=HEADERS, timeout=10)
+            soup_google = BeautifulSoup(res_google.text, 'html.parser')
+            price_div = soup_google.find(class_='YMlKec fxKbKc')
+            if price_div:
+                data["exchange"] = float(price_div.text.strip().replace(',', ''))
             else:
                  data["errors"].append("환율 (데이터 없음)")
         except Exception:
