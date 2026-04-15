@@ -7,12 +7,12 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Referer": "https://www.google.com/"
+    "Referer": "https://www.naver.com/" # 네이버 검색을 위해 레퍼러 변경
 }
 
 @st.cache_data(ttl=600)
 def fetch_market_data():
-    data = {"nd": None, "dy": None, "exchange": None, "errors": []}
+    data = {"nd": None, "dy": None, "exchange": None, "exchange_source": "수동 입력", "errors": []}
 
     # 1. Nd 시세 (Trading Economics)
     try:
@@ -82,27 +82,36 @@ def fetch_market_data():
     except Exception:
          data["errors"].append("Dy 시세 (통신 실패)")
 
-    # 3. 환율 (네이버 금융 1순위 -> 구글 파이낸스 2순위 백업으로 순서 변경)
+    # 3. 환율 (네이버 통합검색 1순위 -> 구글 파이낸스 2순위 백업)
     try:
-        # 1차 시도: 네이버 금융 (한국 실무 기준 - 하나은행 매매기준율)
-        url_naver = "https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_CNYKRW"
-        res_naver = requests.get(url_naver, headers=HEADERS, timeout=10)
+        # 1차 시도: 네이버 통합검색창 우회 (차단 회피율이 가장 높음)
+        url_naver_search = "https://search.naver.com/search.naver?query=위안화+환율"
+        res_naver = requests.get(url_naver_search, headers=HEADERS, timeout=10)
         soup_naver = BeautifulSoup(res_naver.text, 'html.parser')
-        today_price = soup_naver.find('p', class_='no_today')
-        if today_price:
-            price_str = today_price.find('span', class_='blind').text
-            data["exchange"] = float(price_str.replace(',', ''))
+        
+        # 네이버 검색 결과의 환율 숫자 영역 파싱
+        spt_con = soup_naver.find('div', class_='spt_con')
+        if spt_con and spt_con.find('strong'):
+            data["exchange"] = float(spt_con.find('strong').text.replace(',', ''))
+            data["exchange_source"] = "네이버 (하나은행 매매기준율)"
         else:
-            raise Exception("Naver failed")
+            # 보조 탐색 (정규식)
+            match = re.search(r'([1-9][0-9]{2}\.[0-9]{2})\s*원', soup_naver.get_text())
+            if match:
+                data["exchange"] = float(match.group(1))
+                data["exchange_source"] = "네이버 (하나은행 매매기준율)"
+            else:
+                raise Exception("Naver Search Parsing Failed")
     except Exception:
         try:
-            # 2차 시도: 구글 파이낸스 (국제 외환 기준)
+            # 2차 시도: 구글 파이낸스 (네이버 완전히 막혔을 때)
             url_google = "https://www.google.com/finance/quote/CNY-KRW"
             res_google = requests.get(url_google, headers=HEADERS, timeout=10)
             soup_google = BeautifulSoup(res_google.text, 'html.parser')
             price_div = soup_google.find(class_='YMlKec fxKbKc')
             if price_div:
                 data["exchange"] = float(price_div.text.strip().replace(',', ''))
+                data["exchange_source"] = "구글 (국제 외환 기준 - 네이버 차단됨)"
             else:
                  data["errors"].append("환율 (데이터 없음)")
         except Exception:
@@ -134,14 +143,16 @@ default_ex = market_data["exchange"] if market_data["exchange"] else 190.0
 
 with st.expander("⚙️ 여기를 눌러 자석 정보 및 시세를 입력하세요", expanded=True):
     st.subheader("1. 자석 정보 입력")
-    total_weight = st.number_input("총 투입 중량 (kg)", value=1.0)
+    total_weight = st.number_input("총 투입 중량 (kg)", value=1000.0)
     nd_content = st.number_input("Nd 함량 (%)", value=25.0)
-    dy_content = st.number_input("Dy 함량 (%)", value=0.0)
-    recovery_rate = st.number_input("예상 회수 수율 (%)", min_value=0.0, max_value=100.0, value=80.0, step=0.1)
+    dy_content = st.number_input("Dy 함량 (%)", value=3.0)
+    recovery_rate = st.number_input("예상 회수 수율 (%)", min_value=0.0, max_value=100.0, value=90.0, step=0.1)
     
     st.markdown("---")
     st.subheader("2. 실시간 시세 및 환율 수정")
-    st.caption("자동 연동이 실패했거나 수치가 다를 경우 언제든 직접 수정하세요.")
+    # 환율 출처를 사용자에게 투명하게 보여줌
+    st.caption(f"💡 현재 환율 출처: **{market_data.get('exchange_source')}**")
+    
     nd_price_cny = st.number_input("Nd 시세 (CNY/Ton)", value=default_nd, step=1000.0)
     dy_price_cny = st.number_input("Dy 시세 (CNY/Ton)", value=default_dy, step=10000.0)
     exchange_rate = st.number_input("환율 (KRW/CNY)", value=default_ex, step=1.0)
