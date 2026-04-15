@@ -82,25 +82,27 @@ def fetch_market_data():
     except Exception:
          data["errors"].append("Dy 시세 (통신 실패)")
 
-    # 3. 환율
+    # 3. 환율 (네이버 금융 1순위 -> 구글 파이낸스 2순위 백업으로 순서 변경)
     try:
-        url_google = "https://www.google.com/finance/quote/CNY-KRW"
-        res_google = requests.get(url_google, headers=HEADERS, timeout=10)
-        soup_google = BeautifulSoup(res_google.text, 'html.parser')
-        price_div = soup_google.find(class_='YMlKec fxKbKc')
-        if price_div:
-            data["exchange"] = float(price_div.text.strip().replace(',', ''))
+        # 1차 시도: 네이버 금융 (한국 실무 기준 - 하나은행 매매기준율)
+        url_naver = "https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_CNYKRW"
+        res_naver = requests.get(url_naver, headers=HEADERS, timeout=10)
+        soup_naver = BeautifulSoup(res_naver.text, 'html.parser')
+        today_price = soup_naver.find('p', class_='no_today')
+        if today_price:
+            price_str = today_price.find('span', class_='blind').text
+            data["exchange"] = float(price_str.replace(',', ''))
         else:
-            raise Exception("Google failed")
+            raise Exception("Naver failed")
     except Exception:
         try:
-            url_naver = "https://finance.naver.com/marketindex/exchangeDetail.naver?marketindexCd=FX_CNYKRW"
-            res_naver = requests.get(url_naver, headers=HEADERS, timeout=10)
-            soup_naver = BeautifulSoup(res_naver.text, 'html.parser')
-            today_price = soup_naver.find('p', class_='no_today')
-            if today_price:
-                price_str = today_price.find('span', class_='blind').text
-                data["exchange"] = float(price_str.replace(',', ''))
+            # 2차 시도: 구글 파이낸스 (국제 외환 기준)
+            url_google = "https://www.google.com/finance/quote/CNY-KRW"
+            res_google = requests.get(url_google, headers=HEADERS, timeout=10)
+            soup_google = BeautifulSoup(res_google.text, 'html.parser')
+            price_div = soup_google.find(class_='YMlKec fxKbKc')
+            if price_div:
+                data["exchange"] = float(price_div.text.strip().replace(',', ''))
             else:
                  data["errors"].append("환율 (데이터 없음)")
         except Exception:
@@ -132,10 +134,10 @@ default_ex = market_data["exchange"] if market_data["exchange"] else 190.0
 
 with st.expander("⚙️ 여기를 눌러 자석 정보 및 시세를 입력하세요", expanded=True):
     st.subheader("1. 자석 정보 입력")
-    total_weight = st.number_input("총 투입 중량 (kg)", value=1.0)
+    total_weight = st.number_input("총 투입 중량 (kg)", value=1000.0)
     nd_content = st.number_input("Nd 함량 (%)", value=25.0)
-    dy_content = st.number_input("Dy 함량 (%)", value=0.0)
-    recovery_rate = st.number_input("예상 회수 수율 (%)", min_value=0.0, max_value=100.0, value=80.0, step=0.1)
+    dy_content = st.number_input("Dy 함량 (%)", value=3.0)
+    recovery_rate = st.number_input("예상 회수 수율 (%)", min_value=0.0, max_value=100.0, value=90.0, step=0.1)
     
     st.markdown("---")
     st.subheader("2. 실시간 시세 및 환율 수정")
