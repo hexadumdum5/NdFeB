@@ -143,10 +143,10 @@ default_ex = market_data["exchange"] if market_data["exchange"] else 190.0
 
 with st.expander("⚙️ 여기를 눌러 자석 정보 및 시세를 입력하세요", expanded=True):
     st.subheader("1. 자석 정보 입력")
-    total_weight = st.number_input("총 투입 중량 (kg)", value=1000.0)
+    total_weight = st.number_input("총 투입 중량 (kg)", value=1.0)
     nd_content = st.number_input("Nd 함량 (%)", value=25.0)
-    dy_content = st.number_input("Dy 함량 (%)", value=3.0)
-    recovery_rate = st.number_input("예상 회수 수율 (%)", min_value=0.0, max_value=100.0, value=90.0, step=0.1)
+    dy_content = st.number_input("Dy 함량 (%)", value=0.0)
+    recovery_rate = st.number_input("예상 회수 수율 (%)", min_value=0.0, max_value=100.0, value=80.0, step=0.1)
     
     st.markdown("---")
     st.subheader("2. 실시간 시세 및 환율 수정")
